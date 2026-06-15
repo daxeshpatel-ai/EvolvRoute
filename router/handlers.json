@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "handlers": [
+    {
+      "id": "codex_mini",
+      "owner": "codex",
+      "handler_type": "cli_lane",
+      "model": "gpt-5.4-mini",
+      "strong_at": [
+        "boilerplate",
+        "mechanical transforms",
+        "single-function snippets",
+        "low-tier coding",
+        "cheap bulk code",
+        "low latency quick turnaround"
+      ],
+      "weak_at": [
+        "architecture",
+        "ambiguous specs",
+        "huge context",
+        "research",
+        "media generation",
+        "tiny artifacts under 1KB (15K-token fixed overhead)"
+      ],
+      "input_types": [
+        "text",
+        "code"
+      ],
+      "output_types": [
+        "code",
+        "text"
+      ],
+      "tools": [
+        "codex exec",
+        "read-only sandbox"
+      ],
+      "cost_band": "subscription",
+      "latency_band": "low",
+      "risk_level": "low",
+      "max_artifact_hint": "small module / single file; ~128K context",
+      "enabled": true,
+      "notes": "GOTCHA: codex v0.139.0 traps SIGTERM and exits 0 with EMPTY stdout on a watchdog kill \u2014 empty-output is the real timeout signal. First-attempt timeout ~120s. Don't delegate artifacts <~1KB (fixed ~15K-token per-call overhead).",
+      "routing_tags": [
+        "code",
+        "boilerplate"
+      ]
+    },
+    {
+      "id": "codex_55",
+      "owner": "codex",
+      "handler_type": "cli_lane",
+      "model": "gpt-5.5",
+      "strong_at": [
+        "mid-tier feature implementation",
+        "self-contained modules",
+        "focused test suites",
+        "flagship coding"
+      ],
+      "weak_at": [
+        "architecture",
+        "cross-cutting design",
+        "huge context beyond ~256K",
+        "web-grounded research",
+        "media generation"
+      ],
+      "input_types": [
+        "text",
+        "code"
+      ],
+      "output_types": [
+        "code",
+        "test",
+        "text"
+      ],
+      "tools": [
+        "codex exec",
+        "read-only sandbox"
+      ],
+      "cost_band": "subscription",
+      "latency_band": "medium",
+      "risk_level": "low",
+      "max_artifact_hint": "self-contained feature / module / test suite; ~256K context",
+      "enabled": true,
+      "notes": "GOTCHA: same SIGTERM-empty behavior as codex_mini. First-attempt timeout ~300s+. ChatGPT-plan 5h rolling quota window shared with codex_mini (CODEX_CAP=40).",
+      "routing_tags": [
+        "code",
+        "test",
+        "tests",
+        "refactor"
+      ]
+    },
+    {
+      "id": "agy_flash",
+      "owner": "agy",
+      "handler_type": "cli_lane",
+      "model": "gemini-3.5-flash (auto-selected)",
+      "strong_at": [
+        "docs and bulk text drafting",
+        "web-grounded research",
+        "huge-context whole-repo reads (~1M ctx)",
+        "most generous free quota \u2014 prefer first"
+      ],
+      "weak_at": [
+        "latency-sensitive work (~70s cold start)",
+        "flagship coding",
+        "media generation"
+      ],
+      "input_types": [
+        "text",
+        "code",
+        "urls"
+      ],
+      "output_types": [
+        "text",
+        "doc",
+        "research",
+        "code"
+      ],
+      "tools": [
+        "agy --print",
+        "web grounding",
+        "scratch-cwd isolation"
+      ],
+      "cost_band": "free_quota",
+      "latency_band": "medium",
+      "risk_level": "low",
+      "max_artifact_hint": "large docs / whole-repo analyses; ~1M context",
+      "enabled": true,
+      "notes": "GOTCHA: agy has NO filesystem read-only flag \u2014 delegate.sh runs it from a throwaway scratch cwd, so any repo files it must READ need ABSOLUTE paths. Model is auto-selected; never pin. ~1000-1500 req/day free tier (AGY_CAP=800).",
+      "routing_tags": [
+        "doc",
+        "docs",
+        "research"
+      ]
+    },
+    {
+      "id": "agy_relay",
+      "owner": "agy",
+      "handler_type": "cli_lane",
+      "model": "gemini-3.5-flash (auto-selected)",
+      "strong_at": [
+        "context compression",
+        "summarizing huge inputs into a compact brief for a downstream codex call (agy->codex relay)",
+        "distilling repo state into a spec"
+      ],
+      "weak_at": [
+        "final code authorship",
+        "latency-sensitive work (~70s cold start)",
+        "media generation"
+      ],
+      "input_types": [
+        "text",
+        "code",
+        "urls"
+      ],
+      "output_types": [
+        "summary_file"
+      ],
+      "tools": [
+        "agy --print",
+        "scratch-cwd isolation"
+      ],
+      "cost_band": "free_quota",
+      "latency_band": "medium",
+      "risk_level": "low",
+      "max_artifact_hint": "compact summary/spec file (a few KB) distilled from up to ~1M tokens of input",
+      "enabled": true,
+      "notes": "Stage 1 of the agy->codex relay: agy compresses huge context into a summary_file, codex implements from it. Same scratch-cwd absolute-paths rule as agy_flash.",
+      "routing_tags": [
+        "compress",
+        "summary",
+        "relay"
+      ]
+    },
+    {
+      "id": "grok_text",
+      "owner": "grok",
+      "handler_type": "cli_lane",
+      "model": "grok-build",
+      "strong_at": [
+        "fallback for mid-tier coding",
+        "real-time / X-data-grounded research",
+        "fast composition"
+      ],
+      "weak_at": [
+        "latency-sensitive work (~70s cold start)",
+        "beta-volatile quota",
+        "huge context beyond ~256-512K"
+      ],
+      "input_types": [
+        "text",
+        "code"
+      ],
+      "output_types": [
+        "code",
+        "text",
+        "research"
+      ],
+      "tools": [
+        "grok -p",
+        "read-only sandbox",
+        "--best-of-n",
+        "--check",
+        "--effort"
+      ],
+      "cost_band": "subscription",
+      "latency_band": "medium",
+      "risk_level": "medium",
+      "max_artifact_hint": "mid feature / bounded research answer; ~256-512K context",
+      "enabled": true,
+      "notes": "SuperGrok beta \u2014 limits volatile (GROK_CAP=150). Text lane uses --sandbox read-only; fine as a fallback for codex mid-code and for anything needing real-time X data.",
+      "routing_tags": [
+        "research",
+        "fallback"
+      ]
+    },
+    {
+      "id": "grok_media",
+      "owner": "grok",
+      "handler_type": "cli_lane",
+      "model": "grok-build + Imagine (Aurora)",
+      "strong_at": [
+        "image generation (image_gen, image_edit)",
+        "image-to-video (image_to_video, reference_to_video)",
+        "only local gen lane for image/video"
+      ],
+      "weak_at": [
+        "text/code tasks",
+        "text-to-video (does not exist \u2014 video always starts from an image)",
+        "long clips (6s or 10s only, <=30s/day at 720p)"
+      ],
+      "input_types": [
+        "text",
+        "image"
+      ],
+      "output_types": [
+        "image",
+        "video"
+      ],
+      "tools": [
+        "grok -p with imagine skill tool calls",
+        "--always-approve"
+      ],
+      "cost_band": "subscription",
+      "latency_band": "high",
+      "risk_level": "medium",
+      "max_artifact_hint": "~200 image+video generations/24h combined; ~10-15 real 720p clips/day; clips 6s or 10s",
+      "enabled": true,
+      "notes": "GOTCHA: media writes need --always-approve (read-only sandbox blocks the save); outputs land in ~/.grok/sessions/<cwd>/<sid>/{images,videos}/ \u2014 copy newest out by mtime. Images are always JPEG even when named .png.",
+      "routing_tags": [
+        "media",
+        "image",
+        "video"
+      ]
+    },
+    {
+      "id": "claude_keep",
+      "owner": "claude",
+      "handler_type": "primary",
+      "model": "claude (session model)",
+      "strong_at": [
+        "architecture",
+        "cross-cutting design",
+        "code review and QC",
+        "planning",
+        "complex / cross-cutting debugging",
+        "integration",
+        "final judgment",
+        "ambiguous or security-critical work"
+      ],
+      "weak_at": [
+        "cheap bulk boilerplate (cost)",
+        "image/video generation (modality)",
+        "real-time X data"
+      ],
+      "input_types": [
+        "text",
+        "code",
+        "image"
+      ],
+      "output_types": [
+        "code",
+        "text",
+        "doc",
+        "review",
+        "plan"
+      ],
+      "tools": [
+        "full agent toolset",
+        "repo write access"
+      ],
+      "cost_band": "claude_tokens",
+      "latency_band": "low",
+      "risk_level": "low",
+      "max_artifact_hint": "unbounded within session context",
+      "enabled": true,
+      "notes": "Catch-all primary: ALL risk-high tasks route here, plus anything failing the delegate-vs-do test (ambiguous spec, unverifiable output, no worker edge). Never delegated away.",
+      "routing_tags": [
+        "architecture",
+        "review",
+        "planning",
+        "debug"
+      ]
+    }
+  ]
+}

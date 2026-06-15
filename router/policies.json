@@ -1,0 +1,7 @@
+{
+  "recent_window_secs": 900,
+  "escalate_after_failure": true,
+  "escalate_task_types": ["code", "refactor", "test"],
+  "lane_cooldown_errors": 2,
+  "min_delegate_tokens": 1000
+}

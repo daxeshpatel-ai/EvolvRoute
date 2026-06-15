@@ -1,0 +1,14 @@
+# EvolvRoute Python dependencies.
+#
+# The router embedder. model2vec is pure-numpy (no torch) — fast to install and
+# runs on CPU anywhere. This is the only hard requirement.
+model2vec
+
+# Optional alternative embedder: sentence-transformers gives higher-quality
+# vectors but pulls in torch (large). The router auto-detects whichever is
+# installed; model2vec is the lightweight default.
+#   sentence-transformers
+#
+# Optional system tools (install via your OS package manager, not pip):
+#   jq        — pretty-printing / inspecting ledger.jsonl
+#   graphviz  — re-rendering architecture.dot to svg/png (`dot -Tsvg ...`)

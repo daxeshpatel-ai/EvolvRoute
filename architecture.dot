@@ -1,0 +1,128 @@
+// EvolvRoute by Daxesh Patel — high-level process / architecture
+// Render: dot -Tpng -Gdpi=150 architecture.dot -o architecture.png
+//         dot -Tsvg architecture.dot -o architecture.svg
+digraph EvolvRoute {
+  rankdir=TB;
+  bgcolor="white";
+  label="EvolvRoute by Daxesh Patel";
+  labelloc="t";
+  fontsize=20;
+  fontcolor="#1f4e8c";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, style="filled", color="#5b6470", penwidth=1.2];
+  edge [fontname="Helvetica", fontsize=9, color="#5b6470"];
+  compound=true;
+  nodesep=0.35;
+  ranksep=0.55;
+
+  // palette: blue=control, grey=execution, green/orange=learning loop, amber=governance
+
+  // ===== ZONE 1: CONTROL / ENTRY =====
+  subgraph cluster_control {
+    label="ZONE 1 - Control / Entry";
+    labeljust="l"; fontsize=12; fontcolor="#1f4e8c";
+    color="#1f4e8c"; style="rounded"; bgcolor="#f2f7fd";
+
+    claude [label="Claude\n(controller / integrator)", shape="box", fillcolor="#cfe2f7", color="#1f4e8c"];
+    delegate [label="delegate.sh\n(entrypoint)", shape="box", fillcolor="#9ec4ec", color="#1f4e8c"];
+    manual [label="Manual path\n<cli> <model> \"prompt\"", shape="box", fillcolor="#e6f0fb", color="#1f4e8c"];
+    autop  [label="Auto path\nauto \"task\"", shape="box", fillcolor="#e6f0fb", color="#1f4e8c"];
+
+    claude -> delegate;
+    delegate -> manual [label="manual"];
+    delegate -> autop  [label="auto"];
+  }
+
+  // ===== GOVERNANCE GATES =====
+  subgraph cluster_gov {
+    label="Governance gates (touch delegate.sh)";
+    labeljust="l"; fontsize=11; fontcolor="#9a6a00";
+    color="#c98a00"; style="rounded"; bgcolor="#fff7e8";
+
+    gov [label="Quota caps - Spend gate (SPEND_CAP)\nBreak-even floor (>=1000 tok)\nEscalation -> claude_keep\nRead-only sandbox", shape="note", fillcolor="#ffe9bf", color="#c98a00"];
+  }
+  delegate -> gov [style="dashed", color="#c98a00", arrowhead="none", constraint=false];
+
+  // ===== ZONE 2: ROUTER + GOVERNANCE =====
+  subgraph cluster_router {
+    label="ZONE 2 - Geometric Router  (route.py)";
+    labeljust="l"; fontsize=12; fontcolor="#1f4e8c";
+    color="#1f4e8c"; style="rounded"; bgcolor="#f2f7fd";
+
+    embed   [label="embed task\n(model2vec - potion-base-8M - local)", shape="box", fillcolor="#dbe9fb"];
+    hard    [label="Hard filters\nmodality - escalation - quota - stop-cells", shape="box", fillcolor="#dbe9fb"];
+    policy  [label="Stateful policy filter\nbreak-even floor - escalate-after-failure - lane-cooldown", shape="box", fillcolor="#dbe9fb"];
+    score   [label="Composite score\n0.45 centroid - 0.25 outcome-quality\n0.20 smoothed-success - 0.05 cost - 0.05 latency", shape="box", fillcolor="#b9d4f3"];
+    chosen  [label="chosen handler", shape="box", fillcolor="#9ec4ec", color="#1f4e8c"];
+
+    embed -> hard -> policy -> score -> chosen;
+  }
+  autop -> embed [lhead=cluster_router];
+
+  // ===== ZONE 3: EXECUTION LANES =====
+  subgraph cluster_exec {
+    label="ZONE 3 - Execution lanes  (7 handlers)";
+    labeljust="l"; fontsize=12; fontcolor="#3a3f46";
+    color="#5b6470"; style="rounded"; bgcolor="#f4f5f6";
+
+    subgraph cluster_codex {
+      label="codex CLI (read-only)"; fontsize=10; color="#8a929c"; style="rounded"; bgcolor="#eceef0";
+      codex_mini [label="codex_mini\ncheap boilerplate/bulk", shape="box", fillcolor="#dfe3e8"];
+      codex_55   [label="codex_55\nmid feature/tests - relay st2", shape="box", fillcolor="#dfe3e8"];
+    }
+    subgraph cluster_agy {
+      label="agy CLI (scratch cwd)"; fontsize=10; color="#8a929c"; style="rounded"; bgcolor="#eceef0";
+      agy_flash [label="agy_flash\ndocs/bulk/research/huge-ctx", shape="box", fillcolor="#dfe3e8"];
+      agy_relay [label="agy_relay\nstage1 compress -> codex st2", shape="box", fillcolor="#dfe3e8"];
+    }
+    subgraph cluster_grok {
+      label="grok CLI (read-only)"; fontsize=10; color="#8a929c"; style="rounded"; bgcolor="#eceef0";
+      grok_text  [label="grok_text\ngrok text", shape="box", fillcolor="#dfe3e8"];
+      grok_media [label="grok_media\nimage / video", shape="box", fillcolor="#dfe3e8"];
+    }
+    claude_keep [label="claude_keep\nhandle inline - no CLI - no ledger", shape="box", fillcolor="#cfe2f7", color="#1f4e8c"];
+
+    exec_run [label="build_cmd -> run_with_timeout (watchdog)\none-hop fallback: codex->agy - agy->codex - grok->agy", shape="box", fillcolor="#e7e9ec", color="#5b6470"];
+  }
+
+  chosen -> codex_mini [lhead=cluster_exec];
+  chosen -> codex_55;
+  chosen -> agy_flash;
+  chosen -> agy_relay;
+  chosen -> grok_text;
+  chosen -> grok_media;
+  chosen -> claude_keep [color="#1f4e8c"];
+
+  codex_mini -> exec_run [color="#8a929c"];
+  codex_55   -> exec_run [color="#8a929c"];
+  agy_flash  -> exec_run [color="#8a929c"];
+  agy_relay  -> exec_run [color="#8a929c"];
+  grok_text  -> exec_run [color="#8a929c"];
+  grok_media -> exec_run [color="#8a929c"];
+
+  // ===== ZONE 4: LEARNING LOOP =====
+  subgraph cluster_learn {
+    label="ZONE 4 - Self-learning loop";
+    labeljust="l"; fontsize=12; fontcolor="#1f7a3a";
+    color="#1f7a3a"; style="rounded"; bgcolor="#eef8f0";
+
+    logs   [label="usage.log + ledger.jsonl\n(call row)", shape="box", fillcolor="#cfead7", color="#1f7a3a"];
+    signal [label="outcome signal\nauto-verdict reject (timeout/error/empty)\nOR manual verdict (accept/edit/reject)", shape="box", fillcolor="#cfead7", color="#1f7a3a"];
+    ingest [label="ingest.py sync\njoin call+verdict -> outcomes\nre-embed -> recompute centroids -> orchestra.db", shape="box", fillcolor="#bfe3ca", color="#1f7a3a"];
+    digest [label="digest.py\nper-lane quality - stop-cells\n(reject%>30 or edit%>35 & n>=3)", shape="box", fillcolor="#bfe3ca", color="#1f7a3a"];
+
+    logs -> signal -> ingest -> digest;
+  }
+
+  exec_run -> logs [color="#e08a00", penwidth=2.0, label="every call"];
+
+  // feedback arrow back to router -- THE loop
+  digest -> embed [color="#e08a00", penwidth=2.6, style="bold",
+                   label="self-learning loop\n(updated centroids - outcomes - stop-cells)",
+                   fontcolor="#b4690e", lhead=cluster_router, constraint=false];
+
+  // ===== EXIT CODES LEGEND =====
+  legend [shape="note", fillcolor="#fbfbfb", color="#9aa0a8", fontsize=9,
+    label=<<b>Exit codes</b><br align="left"/>0 ok &#183; 2 usage &#183; 3 quota/spend refusal<br align="left"/>4 router fail &#183; 5 claude_keep &#183; 6 grok-media<br align="left"/>124 timeout (after one fallback hop)<br align="left"/><br align="left"/><b>Palette</b>  blue=control &#183; grey=execution &#183; green/orange=learning loop<br align="left"/>>];
+  { rank=sink; legend; }
+}

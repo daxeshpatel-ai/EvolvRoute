@@ -1,0 +1,10 @@
+{"ts":"2026-01-05T09:12:00Z","cli":"codex","model":"gpt-5.4-mini","timeout":120,"rc":0,"out_chars":1840}
+{"ts":"2026-01-05T09:30:00Z","cli":"agy","model":"auto","timeout":240,"rc":0,"out_chars":5120}
+{"ts":"2026-01-05T10:02:00Z","cli":"agy","model":"auto","timeout":280,"rc":0,"out_chars":9430}
+{"ts":"2026-01-05T10:40:00Z","cli":"codex","model":"gpt-5.5","timeout":300,"rc":0,"out_chars":3260}
+{"ts":"2026-01-05T11:15:00Z","cli":"grok","model":"grok-build","timeout":240,"rc":0,"out_chars":214880}
+{"ts":"2026-01-05T12:03:00Z","cli":"codex","model":"gpt-5.4-mini","timeout":120,"rc":0,"out_chars":1290}
+{"ts":"2026-01-05T13:21:00Z","cli":"agy","model":"auto","timeout":240,"rc":0,"out_chars":4080}
+{"ts":"2026-01-05T14:09:00Z","cli":"codex","model":"gpt-5.5","timeout":300,"rc":124,"out_chars":0}
+{"ts":"2026-01-05T15:30:00Z","cli":"agy","model":"auto","timeout":240,"rc":0,"out_chars":6610}
+{"ts":"2026-01-05T16:14:00Z","cli":"codex","model":"gpt-5.4-mini","timeout":120,"rc":0,"out_chars":2010}
