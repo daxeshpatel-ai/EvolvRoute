@@ -137,6 +137,7 @@ The most-used environment variables (defaults pulled from `delegate.sh` and `ARC
 - The ledger stores a `spec_hash` of each task, never the prompt text.
 - Do not put secrets in task prompts — they are passed to the worker CLI and may be retained by that tool's own session store.
 - Workers run sandboxed (`codex` / `grok` read-only; `agy` from a throwaway scratch cwd) so delegated tasks cannot mutate your repo.
+- Report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
 
 ## Adding your own model / CLI
 
@@ -174,7 +175,7 @@ EvolvRoute is early and deliberately small — which means your fingerprints can
 - **Stress-test the self-learning loop** — throw new task types at it and see where the routing breaks down.
 - **Sharpen the docs** — clearer onboarding helps the next person route their first task faster.
 
-Star the repo if the idea resonates, open an issue with how you'd use it, or send a PR — see [CONTRIBUTING.md](CONTRIBUTING.md). The [`good first issue`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/good%20first%20issue)-labeled tasks are the easiest entry point, and [`help wanted`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/help%20wanted) marks where an extra hand goes furthest.
+Star the repo if the idea resonates, open an issue with how you'd use it, or send a PR — see [CONTRIBUTING.md](CONTRIBUTING.md) and our [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). The [`good first issue`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/good%20first%20issue)-labeled tasks are the easiest entry point, and [`help wanted`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/help%20wanted) marks where an extra hand goes furthest.
 
 ## Author
 

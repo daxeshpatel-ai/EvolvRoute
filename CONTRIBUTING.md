@@ -3,6 +3,21 @@
 Thanks for your interest in EvolvRoute. This is a small, focused project — contributions
 that keep it lean and portable are welcome.
 
+## Ways to contribute
+
+- **Add a worker lane** — point the router at a new CLI or model (the most common
+  contribution; see below).
+- **Sharpen the scoring policy or break-even heuristic** — improve how the router decides
+  what's cheapest-capable.
+- **Stress-test the self-learning loop** — throw new task types at it and report where
+  routing breaks down.
+- **Improve the docs** — clearer onboarding gets the next person to their first route faster.
+- **File focused bug reports and feature requests** — use the issue templates.
+
+New here? The [`good first issue`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/good%20first%20issue)-labeled
+issues are the easiest entry point, and [`help wanted`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/help%20wanted)
+marks where an extra hand goes furthest.
+
 ## Adding a worker lane
 
 Most contributions are new lanes (a CLI the router can dispatch to). A lane is additive:
@@ -53,3 +68,13 @@ cp usage.log.example usage.log
 ```
 
 Never put secrets in delegation prompts — they reach the worker CLI and its session store.
+
+## Code of Conduct
+
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you're
+expected to uphold it. Report unacceptable behavior privately to dhpatel@gmail.com.
+
+## Security
+
+Found a vulnerability? Don't open a public issue — see [SECURITY.md](SECURITY.md) for how to
+report it privately.
