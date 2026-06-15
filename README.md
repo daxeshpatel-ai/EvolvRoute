@@ -35,6 +35,7 @@ EvolvRoute is a self-learning AI workload router. It learns from every outcome a
 - [How it works](#how-it-works)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
+- [Security & data hygiene](#security--data-hygiene)
 - [Adding your own model / CLI](#adding-your-own-model--cli)
 - [The self-learning loop](#the-self-learning-loop)
 - [Design notes](#design-notes)
@@ -103,6 +104,15 @@ The most-used environment variables (defaults pulled from `delegate.sh` and `ARC
 | `MIN_DELEGATE_TOKENS` | `1000` (from policies) | Break-even floor — tasks below this stay inline |
 | `NO_AUTOSYNC` | `0` | When `1`, skip the post-verdict `ingest` + `digest` |
 | `AGY_MIN_TO` | `180` | Minimum timeout (secs) for direct agy calls, floors cold starts |
+
+## Security & data hygiene
+
+- EvolvRoute stores no API keys. Each worker CLI (`codex` / `agy` / `grok`, or your own) authenticates with its OWN session/credentials; EvolvRoute only shells out to them.
+- Keep real credentials and session files (e.g. `~/.grok/`, `~/.local/`, provider config dirs) OUTSIDE the project directory — EvolvRoute never reads or copies them.
+- `ledger.jsonl` and `usage.log` are gitignored: real queries you run are recorded locally for the learning loop but are never staged or committed. Only the synthetic `*.example` seeds are tracked.
+- The ledger stores a `spec_hash` of each task, never the prompt text.
+- Do not put secrets in task prompts — they are passed to the worker CLI and may be retained by that tool's own session store.
+- Workers run sandboxed (`codex` / `grok` read-only; `agy` from a throwaway scratch cwd) so delegated tasks cannot mutate your repo.
 
 ## Adding your own model / CLI
 
