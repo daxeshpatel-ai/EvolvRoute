@@ -183,7 +183,7 @@ Built by **Daxesh Patel** — exploring how AI systems can be made cheaper, self
 
 - Website: [daxeshpatel.com](https://daxeshpatel.com)
 - GitHub: [github.com/daxeshpatel-ai](https://github.com/daxeshpatel-ai)
-<!-- LinkedIn: add URL here -->
+- LinkedIn: [linkedin.com/in/dhpatel](https://www.linkedin.com/in/dhpatel/)
 
 ## License
 
