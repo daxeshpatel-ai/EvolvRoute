@@ -4,16 +4,25 @@
 
 > Routing that gets cheaper the more you use it.
 
+*A self-learning router that sends each AI task to the cheapest model that can actually do it — and gets smarter every time it runs.*
+
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![embeddings: local (model2vec)](https://img.shields.io/badge/embeddings-local%20(model2vec)-green.svg)](https://github.com/MinishLab/model2vec)
 [![status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#project-status)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![good first issues](https://img.shields.io/badge/good%20first%20issues-open-7057ff.svg)](#get-involved)
+[![GitHub stars](https://img.shields.io/github/stars/daxeshpatel-ai/EvolvRoute?style=social)](https://github.com/daxeshpatel-ai/EvolvRoute)
 
 EvolvRoute is a self-learning AI workload router. It learns from every outcome and routes each task to the cheapest model that can actually do the job — so it gets smarter and cheaper the more you use it. Instead of paying frontier prices for every task — or running them all in parallel and paying N× — it embeds each task, scores your available models on cost, capability, and proven track record, and routes to the single cheapest one that can do it. Every result is graded and fed back, so the router's judgment compounds.
 
-## Process Overview
+## The problem
 
-![EvolvRoute process overview](docs/process-overview.png)
+Not every task needs a frontier model — but choosing the right one by hand doesn't scale, and running them all *to be safe* multiplies your bill. EvolvRoute makes the call for you: it routes each task to the cheapest model that can actually do the job, then learns from what worked so the next call is sharper. Your cost curve bends down as the system gets smarter — the opposite of how AI usually scales.
+
+## Process overview
+
+![EvolvRoute process overview: a single task enters the controller, the router embeds and scores every lane, governance gates enforce spend and quota caps, exactly one cheapest-capable lane executes, Claude grades the result, and the verdict feeds back into the self-learning loop](docs/process-overview.png)
 
 *One task in, one cheapest-capable lane out — every result graded and fed back so the next route is better.*
 
@@ -29,19 +38,23 @@ EvolvRoute is a self-learning AI workload router. It learns from every outcome a
 | Orchestra DB | `router/orchestra.db` | Centroids & policies the router scores against |
 | Usage Log & Verdicts + Ingest & Digest | EvolvIntelligence (`router/ingest.py` + `digest.py`) | The self-learning loop: re-embed, recompute centroids, write stop-cells |
 
-## Table of Contents
+## Table of contents
 
+- [The problem](#the-problem)
 - [Why it's different](#why-its-different)
 - [How it works](#how-it-works)
+- [Why it works the way it does](#why-it-works-the-way-it-does)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
 - [Security & data hygiene](#security--data-hygiene)
 - [Adding your own model / CLI](#adding-your-own-model--cli)
 - [The self-learning loop](#the-self-learning-loop)
 - [Design notes](#design-notes)
+- [Roadmap / where this is going](#roadmap--where-this-is-going)
 - [Project status](#project-status)
-- [Contributing](#contributing)
-- [License & author](#license--author)
+- [Get involved](#get-involved)
+- [Author](#author)
+- [License](#license)
 
 ## Why it's different
 
@@ -59,6 +72,17 @@ A task enters, the router embeds it and scores every available lane on cost, cap
 - **Execute with one-hop fallback** — the lane runs read-only; on timeout or empty output it falls back a single hop.
 - **Claude verdict** — the artifact is integrated and graded (accept / edit / reject).
 - **Self-learning loop** — the outcome is ingested and digested, so the next routing decision is better.
+
+## Why it works the way it does
+
+Four deliberate bets, each with a tradeoff:
+
+| Principle | The bet | The tradeoff |
+|---|---|---|
+| **Selection over ensemble** | One well-chosen model beats N-in-parallel for most work | You pay ~1×, not N× — fusion stays available for high-stakes tasks |
+| **Memory over static rules** | Every outcome is training data, so routing compounds | Needs verdicts to learn — auto-graded on failures, one keystroke on success |
+| **Local over API** | Embeddings run offline via model2vec | A slightly smaller model than a hosted embedder, but zero extra cost and zero data egress |
+| **Cost as a first-class constraint** | Spend caps, quotas, and a break-even floor live in the router | A few guardrails to configure, but your budget is enforced, not hoped for |
 
 ## Quickstart
 
@@ -127,16 +151,38 @@ Every dispatched call writes a row to the ledger, and each result gets a verdict
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the full system spec: components, request flow, the geometric router, governance gates, subcommands, and env vars.
 - [FUSION_COMPARISON.md](FUSION_COMPARISON.md) — how EvolvRoute differs from OpenRouter Fusion: selection + memory (route to one cheapest-capable model and learn) vs a parallel ensemble (run many, pay N×, judge).
 
+## Roadmap / where this is going
+
+Directional, not committed — these are the threads worth pulling next, shared so you can weigh in or help shape them:
+
+- A `fuse` mode that runs K lanes in parallel and judges them, for the rare high-stakes task where being right matters more than being cheap.
+- The router learning *when* fusion is worth the cost versus routing to a single lane — fusion as a learned decision, not a manual flag.
+- More first-class lanes (any CLI or model via the lane spec), so the registry isn't limited to the three reference workers.
+- Richer, stateful routing policies that carry more context across a session.
+- Optional cost dashboards built straight from the ledger, so spend and learning are visible at a glance.
+
 ## Project status
 
 **Alpha.** Single-user, single-host by design — no collaboration layer and no web UI. Interfaces and defaults may change.
 
-## Contributing
+## Get involved
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+EvolvRoute is early and deliberately small — which means your fingerprints can shape its direction. Good places to start:
 
-## License & author
+- **Add a lane for your favorite CLI/model** — point the router at a new worker (see [docs/ADDING_A_LANE.md](docs/ADDING_A_LANE.md)).
+- **Improve the scoring policy or break-even heuristic** — sharpen how the router decides what's cheapest-capable.
+- **Stress-test the self-learning loop** — throw new task types at it and see where the routing breaks down.
+- **Sharpen the docs** — clearer onboarding helps the next person route their first task faster.
 
-Licensed under the [Apache License 2.0](LICENSE).
+Star the repo if the idea resonates, open an issue with how you'd use it, or send a PR — see [CONTRIBUTING.md](CONTRIBUTING.md). The [`good first issue`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/good%20first%20issue)-labeled tasks are the easiest entry point, and [`help wanted`](https://github.com/daxeshpatel-ai/EvolvRoute/labels/help%20wanted) marks where an extra hand goes furthest.
 
-Created and maintained by **Daxesh Patel**.
+## Author
+
+Built by **Daxesh Patel** — exploring how AI systems can be made cheaper, self-improving, and genuinely useful in production. EvolvRoute is one experiment in that direction: treating model choice as a learning problem instead of a fixed rule.
+
+- GitHub: [github.com/daxeshpatel-ai](https://github.com/daxeshpatel-ai)
+<!-- LinkedIn: add URL here -->
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE) — see also [NOTICE](NOTICE). Created and maintained by **Daxesh Patel**.
