@@ -180,6 +180,7 @@ Star the repo if the idea resonates, open an issue with how you'd use it, or sen
 
 Built by **Daxesh Patel** — exploring how AI systems can be made cheaper, self-improving, and genuinely useful in production. EvolvRoute is one experiment in that direction: treating model choice as a learning problem instead of a fixed rule.
 
+- Website: [daxeshpatel.com](https://daxeshpatel.com)
 - GitHub: [github.com/daxeshpatel-ai](https://github.com/daxeshpatel-ai)
 <!-- LinkedIn: add URL here -->
 
