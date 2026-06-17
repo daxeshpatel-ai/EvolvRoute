@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evolvroute"
+version = "0.1.0"
+description = "A self-learning AI workload router that sends each task to the cheapest model that can do it — and gets smarter every run."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Daxesh Patel" }]
+keywords = ["llm", "router", "routing", "agents", "cost", "self-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries",
+]
+# Only the local embedder is a hard runtime dep (see requirements.txt notes).
+dependencies = ["model2vec"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/daxeshpatel-ai/EvolvRoute"
+Repository = "https://github.com/daxeshpatel-ai/EvolvRoute"
+
+# Python utilities exposed as console scripts. `delegate.sh` remains the primary
+# shell entrypoint (dispatch / auto-route / quota / verdict / doctor / report);
+# these expose the underlying Python tools directly after `pip install`.
+[project.scripts]
+evolvroute-route = "router.route:main"
+evolvroute-ingest = "router.ingest:main"
+evolvroute-digest = "digest:main"
+evolvroute-report = "router.report:main"
+evolvroute-validate = "router.lane_contract:main"
+
+[tool.setuptools]
+py-modules = ["digest"]
+packages = ["router"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["*.example"]
+
+[tool.ruff.lint]
+# A pragmatic, low-churn gate: pycodestyle (E/W), pyflakes (F), bugbear (B).
+# Import sorting (I) is intentionally omitted — conftest.py manipulates sys.path
+# before importing the router modules, a pattern isort would fight.
+select = ["E", "F", "W", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"

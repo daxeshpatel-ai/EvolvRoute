@@ -115,6 +115,53 @@ if [ "${1:-}" = "quota" ]; then
   exit 0
 fi
 
+# --- doctor subcommand: health-check the lane contract + worker binaries.
+# (1) validates router/handlers.json against the lane contract (fails on
+# structural ERRORs), (2) reports whether each reference worker binary resolves
+# on PATH. Makes NO billable CLI call by default; pass --probe to also run a
+# cheap `<bin> --version` per resolved binary. Exit 1 if the contract is
+# INVALID, else 0 (missing optional binaries are warned, not fatal). ---
+if [ "${1:-}" = "doctor" ]; then
+  DOCTOR_PROBE=0
+  [ "${2:-}" = "--probe" ] && DOCTOR_PROBE=1
+  echo "EvolvRoute doctor"
+  echo "lane contract (router/handlers.json):"
+  if python3 "${SCRIPT_DIR}/router/lane_contract.py"; then
+    CONTRACT_RC=0
+  else
+    CONTRACT_RC=1
+  fi
+  echo "worker binaries:"
+  DOCTOR_RC=0
+  for pair in "codex:${CODEX_BIN}" "agy:${AGY_BIN}" "grok:${GROK_BIN}"; do
+    lane="${pair%%:*}"; bin="${pair#*:}"
+    if resolved="$(command -v "$bin" 2>/dev/null)"; then
+      ver=""
+      if [ "$DOCTOR_PROBE" = "1" ]; then
+        ver="$(timeout 10 "$bin" --version 2>/dev/null | head -1)"
+        [ -n "$ver" ] && ver=" (${ver})"
+      fi
+      printf "  %-6s OK      %s%s\n" "$lane" "$resolved" "$ver"
+    else
+      printf "  %-6s MISSING '%s' not on PATH (set %s_BIN)\n" \
+        "$lane" "$bin" "$(printf '%s' "$lane" | tr '[:lower:]' '[:upper:]')"
+    fi
+  done
+  if [ "$CONTRACT_RC" -ne 0 ]; then
+    echo "delegate.sh: doctor FAILED — handlers.json violates the lane contract" >&2
+    DOCTOR_RC=1
+  fi
+  exit "$DOCTOR_RC"
+fi
+
+# --- report subcommand: spend/savings dashboard from the ledger (no CLI call).
+# Recomputes notional cost per call and the realized savings vs the frontier.
+# `report --json` emits machine-readable output. ---
+if [ "${1:-}" = "report" ]; then
+  shift
+  exec python3 "${SCRIPT_DIR}/router/report.py" --ledger "$LEDGER" "$@"
+fi
+
 # --- verdicts-pending subcommand: list ids of "call" rows in $LEDGER that have
 # NO matching "verdict" row (one id/line on stdout), plus a count to stderr.
 # Surfaces verdict-coverage gaps so the loop's negative/positive signal stays

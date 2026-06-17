@@ -89,7 +89,7 @@ def _l2_normalize(vec):
 
 
 def cosine(a, b):
-    num = sum(x * y for x, y in zip(a, b))
+    num = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
@@ -199,6 +199,13 @@ def capability_text(card):
 def sync_handlers(con):
     with open(HANDLERS_JSON) as fh:
         cards = json.load(fh)["handlers"]
+    # Fail fast on a malformed lane card rather than mis-routing later.
+    import lane_contract
+    errors, _warnings = lane_contract.validate(cards)
+    if errors:
+        raise ValueError(
+            "invalid handlers.json (%d error(s)):\n  %s"
+            % (len(errors), "\n  ".join(errors)))
     ts = now_iso()
     n = 0
     for card in cards:
@@ -360,10 +367,10 @@ def sync_centroids(con):
         w_s = (1.0 - w_d) * 0.8
         w_f = (1.0 - w_d) * 0.2
 
-        def avg(vectors):
+        def avg(vectors, dim=dim):
             if not vectors:
                 return [0.0] * dim
-            return [sum(col) / len(vectors) for col in zip(*vectors)]
+            return [sum(col) / len(vectors) for col in zip(*vectors, strict=False)]
 
         avg_s, avg_f = avg(succ), avg(fail)
         centroid = _l2_normalize(

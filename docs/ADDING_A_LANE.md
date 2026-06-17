@@ -27,14 +27,23 @@ this card is your initial routing prior. Copy the `codex_mini` card and edit it:
   "input_types": ["text", "code"],
   "output_types": ["code", "text"],
   "tools": ["ollama run"],
-  "cost_band": "free",
+  "cost_band": "free_quota",
   "latency_band": "low",
   "risk_level": "low",
   "max_artifact_hint": "small module / single file",
   "enabled": true,
+  "routing_tags": ["text", "draft"],
   "notes": "Local, no quota. Set OLLAMA_BIN to override the binary."
 }
 ```
+
+> **Lane contract.** The card must satisfy [`router/lane_contract.py`](../router/lane_contract.py):
+> required fields (`id`, `owner`, `handler_type`, `input_types`, `output_types`,
+> `enabled`) are structurally enforced and a malformed card fails `ingest.py sync`
+> fast. `cost_band` must be one of `free_quota` / `subscription` / `claude_tokens`,
+> `latency_band` and `risk_level` one of `low` / `medium` / `high` (anything else
+> is a non-fatal warning that falls back to a neutral default). Validate any time
+> with `python3 router/lane_contract.py` or the all-in-one `./delegate.sh doctor`.
 
 - `id` is the **handler id** referenced by the other three touch-points — keep it stable.
 - `owner` is the **lane/quota bucket** (multiple handlers can share one owner, e.g.
@@ -97,6 +106,7 @@ So a ledger row can be attributed back to your handler card:
 ## Verify
 
 ```bash
+./delegate.sh doctor                                 # contract valid + binary resolves
 bash -n delegate.sh                                  # script still parses
 python3 router/route.py "draft a changelog" --task-type doc --json   # your lane can be chosen
 ./delegate.sh ollama llama3.1 "say hi" 60            # it dispatches

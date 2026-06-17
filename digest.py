@@ -13,7 +13,6 @@ for route.py's hard filter. `--ledger PATH` runs against a fixture."""
 import argparse
 import json
 import os
-import sys
 from datetime import datetime, timedelta
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
