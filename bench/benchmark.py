@@ -118,7 +118,7 @@ def baseline_costs(task):
         # "Just use one strong paid model for everything" — GPT-5.5 for all.
         "flagship": token_cost(("codex", "gpt-5.5"), in_tok, out_chars),
         # "Run them all in parallel to be safe" — pay N×.
-        "fusion": sum(token_cost(l, in_tok, out_chars) for l in FUSION_LANES),
+        "fusion": sum(token_cost(ln, in_tok, out_chars) for ln in FUSION_LANES),
     }
 
 
@@ -255,7 +255,7 @@ def build_report(tasks, cold, warm, gov):
     cq = quality(cold)
     wt, _ = aggregate(warm)
     changed = sum(
-        1 for (tc, dc), (tw, dw) in zip(cold, warm)
+        1 for (tc, dc), (tw, dw) in zip(cold, warm, strict=False)
         if dc["chosen"] != dw["chosen"] or dc["mode"] != dw["mode"]
     )
 
@@ -395,9 +395,12 @@ def print_summary(tasks, cold, gov):
     print("EvolvRoute benchmark — %d tasks (cold start)" % len(tasks))
     sub = delegatable_subset_cost(cold)
     print("  routed      %s" % fmt_usd(ct["routed"]))
-    print("  inline      %s   (routed -%.1f%% vs status quo)" % (fmt_usd(ct["inline"]), pct(ct["inline"], ct["routed"])))
-    print("  fusion      %s   (routed -%.1f%%)" % (fmt_usd(ct["fusion"]), pct(ct["fusion"], ct["routed"])))
-    print("  flagship    %s   (downgrades high-tier; not quality-equivalent)" % fmt_usd(ct["flagship"]))
+    print("  inline      %s   (routed -%.1f%% vs status quo)"
+          % (fmt_usd(ct["inline"]), pct(ct["inline"], ct["routed"])))
+    print("  fusion      %s   (routed -%.1f%%)"
+          % (fmt_usd(ct["fusion"]), pct(ct["fusion"], ct["routed"])))
+    print("  flagship    %s   (downgrades high-tier; not quality-equivalent)"
+          % fmt_usd(ct["flagship"]))
     print("  delegated subset: routed %s vs flagship %s (-%.1f%%)"
           % (fmt_usd(sub["routed"]), fmt_usd(sub["flagship"]), pct(sub["flagship"], sub["routed"])))
     eo, et = cq["escalation_correct"]

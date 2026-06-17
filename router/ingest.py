@@ -89,7 +89,7 @@ def _l2_normalize(vec):
 
 
 def cosine(a, b):
-    num = sum(x * y for x, y in zip(a, b))
+    num = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
@@ -367,10 +367,10 @@ def sync_centroids(con):
         w_s = (1.0 - w_d) * 0.8
         w_f = (1.0 - w_d) * 0.2
 
-        def avg(vectors):
+        def avg(vectors, dim=dim):
             if not vectors:
                 return [0.0] * dim
-            return [sum(col) / len(vectors) for col in zip(*vectors)]
+            return [sum(col) / len(vectors) for col in zip(*vectors, strict=False)]
 
         avg_s, avg_f = avg(succ), avg(fail)
         centroid = _l2_normalize(

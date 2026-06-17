@@ -126,6 +126,10 @@ python3 digest.py
 
 # 7. Grade the result so the router learns from it
 ./delegate.sh verdict <id> accept
+
+# 8. Health-check the lanes, and see spend/savings from the ledger
+./delegate.sh doctor      # validate lane cards + check worker binaries
+./delegate.sh report      # notional spend + realized savings vs frontier
 ```
 
 > **Bring your own worker CLIs.** `codex`, `agy`, and `grok` are reference lanes — point EvolvRoute at your own tools by setting `CODEX_BIN` / `AGY_BIN` / `GROK_BIN`, or add a new lane (see below). `jq` is required; `graphviz` is optional (only needed to re-render the diagrams).

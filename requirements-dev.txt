@@ -5,5 +5,7 @@
 # dev dependency is the test runner itself.
 #
 #   pip install -r requirements-dev.txt
-#   pytest -q
+#   pytest -q          # tests
+#   ruff check .       # lint
 pytest
+ruff
