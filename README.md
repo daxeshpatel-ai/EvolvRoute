@@ -44,6 +44,7 @@ Not every task needs a frontier model — but choosing the right one by hand doe
 - [Why it's different](#why-its-different)
 - [How it works](#how-it-works)
 - [Why it works the way it does](#why-it-works-the-way-it-does)
+- [Benchmark](#benchmark)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
 - [Security & data hygiene](#security--data-hygiene)
@@ -83,6 +84,24 @@ Four deliberate bets, each with a tradeoff:
 | **Memory over static rules** | Every outcome is training data, so routing compounds | Needs verdicts to learn — auto-graded on failures, one keystroke on success |
 | **Local over API** | Embeddings run offline via model2vec | A slightly smaller model than a hosted embedder, but zero extra cost and zero data egress |
 | **Cost as a first-class constraint** | Spend caps, quotas, and a break-even floor live in the router | A few guardrails to configure, but your budget is enforced, not hoped for |
+
+## Benchmark
+
+Does routing-to-cheapest-capable actually save money without dropping quality on the work that matters? [`bench/benchmark.py`](bench/benchmark.py) drives the **real** router over a fixed 28-task suite and prices every decision with the project's **own** notional rate table ([`MODEL_REGISTRY.md`](MODEL_REGISTRY.md)) — neither the routing nor the dollars are hand-waved. Full report: [`bench/RESULTS.md`](bench/RESULTS.md).
+
+**Quality held constant** — every strategy below keeps high-tier work (architecture / review / planning / security-critical) on the frontier; they differ only in what they do with the rest:
+
+| Strategy | Total notional cost | EvolvRoute savings |
+|---|---|---|
+| **EvolvRoute (routed)** | **$1.6455** | — |
+| All-frontier inline (no router) | $4.1846 | **60.7%** |
+| All-fusion (run every lane, judge) | $5.7415 | **71.3%** |
+
+- **35.7% cheaper** lane selection than forcing the flagship model — measured on just the tasks the router actually delegated (apples-to-apples).
+- **Governance proven:** 7/7 high-tier tasks kept inline, 15/15 delegatable tasks offloaded, 3/3 trivial tasks floored by break-even.
+- **Honest accounting:** `claude_keep` is priced at the frontier rate (no free lunch on kept work), and the "just use one cheaper model for everything" baseline is reported with a caveat — it's cheaper only by downgrading the high-tier work EvolvRoute deliberately protects.
+
+Reproduce it yourself — offline and deterministic — with `python3 bench/benchmark.py` (see [bench/README.md](bench/README.md)).
 
 ## Quickstart
 
@@ -151,7 +170,7 @@ Every dispatched call writes a row to the ledger, and each result gets a verdict
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the full system spec: components, request flow, the geometric router, governance gates, subcommands, and env vars.
 - [FUSION_COMPARISON.md](FUSION_COMPARISON.md) — how EvolvRoute differs from OpenRouter Fusion: selection + memory (route to one cheapest-capable model and learn) vs a parallel ensemble (run many, pay N×, judge).
-- [bench/RESULTS.md](bench/RESULTS.md) — the benchmark ("midterm exam"): routing the suite costs **~61% less** than running everything on a frontier model inline and **~71% less** than fusing every lane, while keeping 100% of high-tier work on the frontier. Reproduce with `python3 bench/benchmark.py` (see [bench/README.md](bench/README.md)).
+- [bench/RESULTS.md](bench/RESULTS.md) — the full benchmark report and method (see the [Benchmark](#benchmark) section above for the headline numbers).
 
 ## Roadmap / where this is going
 
