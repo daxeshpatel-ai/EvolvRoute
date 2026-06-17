@@ -154,6 +154,14 @@ if [ "${1:-}" = "doctor" ]; then
   exit "$DOCTOR_RC"
 fi
 
+# --- report subcommand: spend/savings dashboard from the ledger (no CLI call).
+# Recomputes notional cost per call and the realized savings vs the frontier.
+# `report --json` emits machine-readable output. ---
+if [ "${1:-}" = "report" ]; then
+  shift
+  exec python3 "${SCRIPT_DIR}/router/report.py" --ledger "$LEDGER" "$@"
+fi
+
 # --- verdicts-pending subcommand: list ids of "call" rows in $LEDGER that have
 # NO matching "verdict" row (one id/line on stdout), plus a count to stderr.
 # Surfaces verdict-coverage gaps so the loop's negative/positive signal stays
