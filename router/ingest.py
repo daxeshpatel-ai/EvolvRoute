@@ -199,6 +199,13 @@ def capability_text(card):
 def sync_handlers(con):
     with open(HANDLERS_JSON) as fh:
         cards = json.load(fh)["handlers"]
+    # Fail fast on a malformed lane card rather than mis-routing later.
+    import lane_contract
+    errors, _warnings = lane_contract.validate(cards)
+    if errors:
+        raise ValueError(
+            "invalid handlers.json (%d error(s)):\n  %s"
+            % (len(errors), "\n  ".join(errors)))
     ts = now_iso()
     n = 0
     for card in cards:

@@ -130,7 +130,7 @@ def build_workdir(seed_ledger):
     wd = tempfile.mkdtemp(prefix="evolvroute-bench-")
     dst = os.path.join(wd, "router")
     os.makedirs(dst)
-    for name in ("ingest.py", "route.py", "handlers.json"):
+    for name in ("ingest.py", "route.py", "handlers.json", "lane_contract.py"):
         shutil.copy(os.path.join(ROUTER, name), os.path.join(dst, name))
     if seed_ledger:
         shutil.copy(seed_ledger, os.path.join(wd, "ledger.jsonl"))

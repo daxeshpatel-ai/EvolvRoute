@@ -23,7 +23,7 @@ def routed(tmp_path):
     that runs route.py --json and parses the result."""
     router_dst = tmp_path / "router"
     router_dst.mkdir()
-    for name in ("ingest.py", "route.py", "handlers.json"):
+    for name in ("ingest.py", "route.py", "handlers.json", "lane_contract.py"):
         shutil.copy(os.path.join(REPO_ROOT, "router", name), router_dst / name)
 
     env = dict(os.environ)
