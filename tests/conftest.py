@@ -20,6 +20,7 @@ import pytest
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROUTER_DIR = os.path.join(REPO_ROOT, "router")
 sys.path.insert(0, ROUTER_DIR)
+sys.path.insert(0, REPO_ROOT)  # so `import digest` (repo-root module) resolves
 
 import ingest  # noqa: E402
 import route  # noqa: E402

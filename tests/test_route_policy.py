@@ -61,6 +61,31 @@ def test_break_even_env_override(monkeypatch):
     assert kept == SURVIVORS
 
 
+def test_break_even_exempts_declared_medium_large(monkeypatch, write_ledger):
+    # An explicit size_class of medium/large means the caller already declared
+    # the task non-trivial, so a terse prompt must NOT be floored.
+    monkeypatch.delenv("MIN_DELEGATE_TOKENS", raising=False)
+    write_ledger([])  # no recent rows -> survivors pass through
+    pol = {"min_delegate_tokens": 1000, "recent_window_secs": 900}
+    for sc in ("medium", "large"):
+        kept, applied = route.stateful_policy_filter(
+            {}, list(SURVIVORS), "code", pol, NOW,
+            task_text="terse spec", modality="text", size_class=sc)
+        assert kept == SURVIVORS, sc
+        assert all(a["rule"] != "break_even" for a in applied), sc
+
+
+def test_break_even_still_floors_small_and_unknown(monkeypatch):
+    monkeypatch.delenv("MIN_DELEGATE_TOKENS", raising=False)
+    pol = {"min_delegate_tokens": 1000, "recent_window_secs": 900}
+    for sc in ("small", "unknown"):
+        kept, applied = route.stateful_policy_filter(
+            {}, list(SURVIVORS), "code", pol, NOW,
+            task_text="tiny", modality="text", size_class=sc)
+        assert kept == ["claude_keep"], sc
+        assert any(a["rule"] == "break_even" for a in applied), sc
+
+
 # --- escalate-after-failure ---------------------------------------------
 
 def test_escalate_after_failure_on_risky_task(write_ledger):

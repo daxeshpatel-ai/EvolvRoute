@@ -192,7 +192,7 @@ def recent_call_rows(now, window):
 
 
 def stateful_policy_filter(handlers, survivors, task_type, policies, now,
-                           task_text="", modality="text"):
+                           task_text="", modality="text", size_class="unknown"):
     """Contextual rules over the recent ledger tail. Returns
     (new_survivors, applied) where applied is a list of
     {"rule": name, "reason": str}. claude_keep is NEVER excluded."""
@@ -201,11 +201,16 @@ def stateful_policy_filter(handlers, survivors, task_type, policies, now,
     # Rule C — break-even floor (deterministic, ledger-independent): a tiny TEXT
     # task isn't worth a worker round-trip (codex burns ~15K fixed tokens/call),
     # so floor it to claude_keep. Estimate tokens as len//4; MEDIA is EXEMPT
-    # (image/video have a real modality edge regardless of prompt size). Floor
-    # value from policies.min_delegate_tokens, overridable via MIN_DELEGATE_TOKENS.
+    # (image/video have a real modality edge regardless of prompt size). An
+    # explicit size_class of medium/large is ALSO exempt: the caller has already
+    # declared the task non-trivial, so a terse-but-substantive spec (e.g. a
+    # boilerplate task with a short prompt but a large expected artifact) is not
+    # mistaken for throwaway work. Floor value from policies.min_delegate_tokens,
+    # overridable via MIN_DELEGATE_TOKENS.
     floor = int(os.environ.get(
         "MIN_DELEGATE_TOKENS", policies.get("min_delegate_tokens", 1000)))
-    if modality not in ("image", "video") and floor > 0:
+    exempt_size = size_class in ("medium", "large")
+    if modality not in ("image", "video") and not exempt_size and floor > 0:
         est_tokens = len(task_text) // 4
         if est_tokens < floor:
             applied.append({
@@ -365,6 +370,72 @@ def log_invocation(con, task_text, chosen, score):
     return inv_id
 
 
+def decide(con, task, task_type="unknown", size_class="unknown",
+           modality="text", risk="low"):
+    """Pure routing decision over an open DB connection. Returns a dict with
+    mode / chosen / score / runner_up / relay / reasons / policy plus the raw
+    `scored` and `exclusions` for callers that want detail. No side effects
+    (it does NOT log the invocation — that's main()'s job), so it is safe to
+    call from tests and the benchmark without mutating the DB."""
+    routing_text = "%s task_type=%s size_class=%s modality=%s" % (
+        task, task_type, size_class, modality)
+    qvec = ingest.embed(routing_text)
+    now = datetime.now(timezone.utc)
+
+    handlers = load_handlers(con)
+    outcomes = load_outcomes(con)
+    survivors, exclusions = hard_filters(handlers, task_type, modality, risk, now)
+    reasons = []
+
+    # Stateful policy hook: contextual rules over the recent ledger tail.
+    # Uses ledger-derived 'now' (deterministic-time convention, like digest.py),
+    # applied after the hard filters and before scoring. claude_keep never dies.
+    policies = load_policies()
+    policy_now = ledger_now()
+    survivors, policy_applied = stateful_policy_filter(
+        handlers, survivors, task_type, policies, policy_now,
+        task_text=task, modality=modality, size_class=size_class)
+    for p in policy_applied:
+        reasons.append("policy %s: %s" % (p["rule"], p["reason"]))
+
+    scored = []
+    for hid in survivors:
+        s, parts = score_handler(handlers[hid], outcomes.get(hid, []), qvec, now)
+        scored.append((s, hid, parts))
+        reasons.append(
+            "%s: score=%.4f (sim=%.3f outcome=%.3f success=%.3f cost=%.1f lat=%.1f)"
+            % (hid, s, parts["sim"], parts["outcome"], parts["success"],
+               parts["cost"], parts["latency"]))
+    for hid, why in exclusions.items():
+        reasons.append("%s: excluded — %s" % (hid, why))
+    scored.sort(key=lambda t: t[0], reverse=True)
+
+    mode, relay = "single", None
+    chosen_score, chosen, _ = scored[0]
+    if task_type in RELAY_TASK_TYPES and size_class == "large":
+        codex_cands = [t for t in scored
+                       if handlers[t[1]]["owner"] == "codex" and t[1] != "codex_mini"]
+        if codex_cands:
+            mode = "relay"
+            relay = {"stage1": "agy_relay", "stage2": codex_cands[0][1]}
+            chosen, chosen_score = codex_cands[0][1], codex_cands[0][0]
+            reasons.append(
+                "relay: %s large task -> stage1=agy_relay (compress), stage2=%s"
+                % (task_type, relay["stage2"]))
+
+    runner_up = next((t[1] for t in scored if t[1] != chosen), None)
+    return {
+        "routing_text": routing_text,
+        "mode": mode, "chosen": chosen, "score": chosen_score,
+        "runner_up": runner_up, "relay": relay, "reasons": reasons,
+        "scored": scored, "exclusions": exclusions,
+        "policy": {
+            "applied": [pa["rule"] for pa in policy_applied],
+            "rules": policy_applied,
+        },
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description="geometric router")
     ap.add_argument("task")
@@ -375,72 +446,28 @@ def main():
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    routing_text = "%s task_type=%s size_class=%s modality=%s" % (
-        args.task, args.task_type, args.size_class, args.modality)
-    qvec = ingest.embed(routing_text)
-    now = datetime.now(timezone.utc)
-
     con = sqlite3.connect(ingest.DB_PATH)
     try:
-        handlers = load_handlers(con)
-        outcomes = load_outcomes(con)
-        survivors, exclusions = hard_filters(
-            handlers, args.task_type, args.modality, args.risk, now)
-        reasons = []
-
-        # Stateful policy hook: contextual rules over the recent ledger tail.
-        # Uses ledger-derived 'now' (deterministic-time convention, like digest.py),
-        # applied after the hard filters and before scoring. claude_keep never dies.
-        policies = load_policies()
-        policy_now = ledger_now()
-        survivors, policy_applied = stateful_policy_filter(
-            handlers, survivors, args.task_type, policies, policy_now,
-            task_text=args.task, modality=args.modality)
-        for p in policy_applied:
-            reasons.append("policy %s: %s" % (p["rule"], p["reason"]))
-
-        scored = []
-        for hid in survivors:
-            s, parts = score_handler(handlers[hid], outcomes.get(hid, []), qvec, now)
-            scored.append((s, hid, parts))
-            reasons.append(
-                "%s: score=%.4f (sim=%.3f outcome=%.3f success=%.3f cost=%.1f lat=%.1f)"
-                % (hid, s, parts["sim"], parts["outcome"], parts["success"],
-                   parts["cost"], parts["latency"]))
-        for hid, why in exclusions.items():
-            reasons.append("%s: excluded — %s" % (hid, why))
-        scored.sort(key=lambda t: t[0], reverse=True)
-
-        mode, relay = "single", None
-        chosen_score, chosen, _ = scored[0]
-        if args.task_type in RELAY_TASK_TYPES and args.size_class == "large":
-            codex_cands = [t for t in scored
-                           if handlers[t[1]]["owner"] == "codex" and t[1] != "codex_mini"]
-            if codex_cands:
-                mode = "relay"
-                relay = {"stage1": "agy_relay", "stage2": codex_cands[0][1]}
-                chosen, chosen_score = codex_cands[0][1], codex_cands[0][0]
-                reasons.append(
-                    "relay: %s large task -> stage1=agy_relay (compress), stage2=%s"
-                    % (args.task_type, relay["stage2"]))
-
-        runner_up = next((t[1] for t in scored if t[1] != chosen), None)
-        log_invocation(con, routing_text, chosen, chosen_score)
+        d = decide(con, args.task, args.task_type, args.size_class,
+                   args.modality, args.risk)
+        log_invocation(con, d["routing_text"], d["chosen"], d["score"])
     finally:
         con.close()
+
+    mode, chosen, chosen_score = d["mode"], d["chosen"], d["score"]
+    relay, runner_up = d["relay"], d["runner_up"]
+    scored, exclusions = d["scored"], d["exclusions"]
+    policy_applied = d["policy"]["rules"]
 
     if args.json:
         print(json.dumps({
             "mode": mode, "chosen": chosen, "score": round(chosen_score, 4),
-            "reasons": reasons, "runner_up": runner_up, "relay": relay,
-            "policy": {
-                "applied": [pa["rule"] for pa in policy_applied],
-                "rules": policy_applied,
-            },
+            "reasons": d["reasons"], "runner_up": runner_up, "relay": relay,
+            "policy": d["policy"],
         }, indent=2))
         return
 
-    print("route: %s" % routing_text)
+    print("route: %s" % d["routing_text"])
     print("mode=%s chosen=%s score=%.4f runner_up=%s" % (mode, chosen, chosen_score, runner_up))
     if relay:
         print("relay: stage1=%s stage2=%s" % (relay["stage1"], relay["stage2"]))
