@@ -47,11 +47,14 @@ Not every task needs a frontier model — but choosing the right one by hand doe
 - [Benchmark](#benchmark)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
+- [Operations & tooling](#operations--tooling)
 - [Security & data hygiene](#security--data-hygiene)
 - [Adding your own model / CLI](#adding-your-own-model--cli)
 - [The self-learning loop](#the-self-learning-loop)
+- [Install & develop](#install--develop)
 - [Design notes](#design-notes)
-- [Roadmap / where this is going](#roadmap--where-this-is-going)
+- [Recently shipped](#recently-shipped)
+- [Future roadmap](#future-roadmap)
 - [Project status](#project-status)
 - [Get involved](#get-involved)
 - [Author](#author)
@@ -152,6 +155,30 @@ The most-used environment variables (defaults pulled from `delegate.sh` and `ARC
 | `NO_AUTOSYNC` | `0` | When `1`, skip the post-verdict `ingest` + `digest` |
 | `AGY_MIN_TO` | `180` | Minimum timeout (secs) for direct agy calls, floors cold starts |
 
+## Operations & tooling
+
+`delegate.sh` is the single entrypoint; every subcommand below makes no surprise calls — the ones marked *(no CLI call)* are pure local reads.
+
+| Command | What it does |
+|---|---|
+| `delegate.sh auto "<task>"` | Route to the cheapest-capable lane and dispatch (the main path) |
+| `delegate.sh [--code] <cli> <model\|-> "<task>" [timeout]` | Dispatch to a specific lane manually |
+| `delegate.sh verdict <id> accept\|edit\|reject [pct]` | Grade a result so the router learns from it *(no CLI call)* |
+| `delegate.sh doctor [--probe]` | **New** — validate every lane card against the [lane contract](docs/ADDING_A_LANE.md) and check each worker binary resolves on `PATH`; `--probe` also runs a cheap `--version`. Exits non-zero if a card is invalid *(no CLI call)* |
+| `delegate.sh report [--json]` | **New** — spend/savings dashboard from the ledger: per-lane notional spend, verdict coverage, and realized savings vs the frontier *(no CLI call)* |
+| `delegate.sh quota` | Today's per-lane call/quota burn *(no CLI call)* |
+| `delegate.sh verdicts-pending` | List call ids still missing a verdict (coverage gaps) *(no CLI call)* |
+
+Lower-level tools (also exposed as console scripts after `pip install` — see [Install & develop](#install--develop)):
+
+| Tool | Purpose |
+|---|---|
+| `python3 router/route.py "<task>" --json` | Dry-run the router and print the decision (no dispatch) |
+| `python3 router/ingest.py sync` | Join verdicts → re-embed outcomes → recompute centroids |
+| `python3 digest.py` | Roll up per-lane quality and (re)write stop-cells |
+| `python3 router/report.py [--json]` | The cost dashboard behind `delegate.sh report` |
+| `python3 router/lane_contract.py` | Validate `router/handlers.json` against the lane contract |
+
 ## Security & data hygiene
 
 - EvolvRoute stores no API keys. Each worker CLI (`codex` / `agy` / `grok`, or your own) authenticates with its OWN session/credentials; EvolvRoute only shells out to them.
@@ -164,11 +191,33 @@ The most-used environment variables (defaults pulled from `delegate.sh` and `ARC
 
 ## Adding your own model / CLI
 
-Nothing in the router is hardwired to the three reference lanes — a lane is just a capability card plus a few small touch-points, and once added, the learning loop picks it up automatically with no engine changes. See [docs/ADDING_A_LANE.md](docs/ADDING_A_LANE.md) for the step-by-step.
+Nothing in the router is hardwired to the three reference lanes — a lane is just a capability card plus a few small touch-points, and once added, the learning loop picks it up automatically with no engine changes. The card must satisfy a small, machine-checkable **lane contract** (validated by `router/lane_contract.py`, enforced on `ingest sync`), and `./delegate.sh doctor` confirms both the contract and that your worker binary resolves. See [docs/ADDING_A_LANE.md](docs/ADDING_A_LANE.md) for the step-by-step.
 
 ## The self-learning loop
 
 Every dispatched call writes a row to the ledger, and each result gets a verdict — automatically when a call fails (timeout, error, or empty output is recorded as a negative verdict with zero human input) or manually via `./delegate.sh verdict <id> accept|edit|reject`. `python3 router/ingest.py sync` then joins calls to verdicts, re-embeds the outcomes, and recomputes each lane's centroid in the Orchestra DB. `python3 digest.py` rolls up per-lane quality and writes stop-cells (consistently-bad `lane × task_type` pairs) to `router/stopcells.json`. The next `auto` call reads the updated centroids, outcomes, and stop-cells — so routing gets better, and cheaper, the more you use it.
+
+## Install & develop
+
+EvolvRoute runs straight from a clone (the Quickstart above). It also ships a `pyproject.toml`, so you can install it and get the Python tools as console scripts:
+
+```bash
+pip install -e .            # installs the router + console scripts
+evolvroute-route "draft a changelog" --task-type doc --json
+evolvroute-report --json    # also: evolvroute-ingest / -digest / -validate
+```
+
+> `delegate.sh` remains the primary shell entrypoint (dispatch, auto-route, quota, verdict, doctor, report); the console scripts expose the underlying Python tools directly.
+
+For contributors — the engine has a hermetic, offline test suite and a lint gate (both run in CI on Python 3.10–3.12):
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q          # routing filters, scoring, policy, ingest, digest, report, e2e
+ruff check .       # lint
+```
+
+Tests run against the deterministic `hashed-bow-256` embedder (no model2vec download, no network) and never touch your real `orchestra.db` / `ledger.jsonl`. See [tests/README.md](tests/README.md).
 
 ## Design notes
 
@@ -176,15 +225,27 @@ Every dispatched call writes a row to the ledger, and each result gets a verdict
 - [FUSION_COMPARISON.md](FUSION_COMPARISON.md) — how EvolvRoute differs from OpenRouter Fusion: selection + memory (route to one cheapest-capable model and learn) vs a parallel ensemble (run many, pay N×, judge).
 - [bench/RESULTS.md](bench/RESULTS.md) — the full benchmark report and method (see the [Benchmark](#benchmark) section above for the headline numbers).
 
-## Roadmap / where this is going
+## Recently shipped
 
-Directional, not committed — these are the threads worth pulling next, shared so you can weigh in or help shape them:
+The foundation has been hardened in recent work:
+
+- **Reproducible benchmark** — the "midterm exam" that prices real routing decisions against frontier-inline and fusion baselines (see [Benchmark](#benchmark)).
+- **Automated test suite + CI** — coverage of the routing engine and data layer (hard filters, scoring, policy, ingest, digest, report, end-to-end), hermetic and offline, on Python 3.10–3.12.
+- **Worker-CLI lane contract + `doctor`** — a machine-checkable card contract enforced on sync, plus a one-command health check for cards and binaries (guards against worker-CLI drift).
+- **Cost dashboard** — `delegate.sh report` turns the ledger into per-lane spend and realized savings vs the frontier.
+- **Size-aware break-even floor** — substantive medium/large tasks are no longer mis-kept inline.
+- **Packaging & lint gate** — `pyproject.toml` with console scripts, plus a `ruff` CI gate.
+
+## Future roadmap
+
+Directional, not committed — the threads worth pulling next, shared so you can weigh in or help shape them:
 
 - A `fuse` mode that runs K lanes in parallel and judges them, for the rare high-stakes task where being right matters more than being cheap.
 - The router learning *when* fusion is worth the cost versus routing to a single lane — fusion as a learned decision, not a manual flag.
-- More first-class lanes (any CLI or model via the lane spec), so the registry isn't limited to the three reference workers.
+- A recency-decay term in scoring, so the router forgets stale outcomes faster as a lane's behavior changes.
 - Richer, stateful routing policies that carry more context across a session.
-- Optional cost dashboards built straight from the ledger, so spend and learning are visible at a glance.
+- More first-class lanes (any CLI or model via the lane contract), so the registry isn't limited to the three reference workers.
+- A higher-fidelity embedder option and a real-embedder CI job, to sharpen cold-start routing beyond the hashed-BoW default.
 
 ## Project status
 
