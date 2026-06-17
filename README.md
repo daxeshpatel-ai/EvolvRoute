@@ -151,6 +151,7 @@ Every dispatched call writes a row to the ledger, and each result gets a verdict
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the full system spec: components, request flow, the geometric router, governance gates, subcommands, and env vars.
 - [FUSION_COMPARISON.md](FUSION_COMPARISON.md) — how EvolvRoute differs from OpenRouter Fusion: selection + memory (route to one cheapest-capable model and learn) vs a parallel ensemble (run many, pay N×, judge).
+- [bench/RESULTS.md](bench/RESULTS.md) — the benchmark ("midterm exam"): routing the suite costs **~61% less** than running everything on a frontier model inline and **~71% less** than fusing every lane, while keeping 100% of high-tier work on the frontier. Reproduce with `python3 bench/benchmark.py` (see [bench/README.md](bench/README.md)).
 
 ## Roadmap / where this is going
 
