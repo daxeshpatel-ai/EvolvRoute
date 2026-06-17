@@ -1,0 +1,9 @@
+# EvolvRoute development / test dependencies.
+#
+# The test suite is hermetic: it runs against the deterministic hashed-bow-256
+# embedder fallback (model2vec is intentionally NOT required here), so the only
+# dev dependency is the test runner itself.
+#
+#   pip install -r requirements-dev.txt
+#   pytest -q
+pytest
